@@ -36,7 +36,6 @@ impl WordProblem {
                                })
                                .collect::<Vec<_>>();
 
-        println!("{:?}", operations);
         if let Some(tkn) = operations.iter().last() {
             if !tkn.chars().all(|ch| ch.is_digit(10) || ch == '-') {
                 return Err("command is not complete, it should end in a digit!".to_owned());
@@ -55,7 +54,6 @@ impl WordProblem {
                 "multiplied" => cur_op = Operation::Multiplication,
                 "raised" => cur_op = Operation::RaisedTo,
                 _ => {
-                    println!("{}", token);
                     let number = try!(token.parse::<i32>().map_err(|err| err.to_string()));
                     total = WordProblem::apply_op(total, number, &cur_op);
                 }
