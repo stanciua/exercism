@@ -82,16 +82,16 @@ impl<'a> Codons<'a> {
         let ((_, s1), (_, s2), (_, s3)) =
             (it.next().unwrap(), it.next().unwrap(), it.next().unwrap());
 
-        let combinations = s1.unwrap()
+        let codon_combinations = s1.unwrap()
             .into_iter()
             .cartesian_product(s2.unwrap().into_iter())
             .cartesian_product(s3.unwrap().into_iter());
 
-        let all_combinations: Vec<String> = combinations.into_iter()
+        let codon_combinations_vec: Vec<String> = codon_combinations.into_iter()
             .map(|((s1, s2), s3)| format!("{}{}{}", s1, s2, s3))
             .collect();
 
-        for codon in all_combinations {
+        for codon in codon_combinations_vec {
             if let Some(&val) = self.codons.get(&*codon) {
                 return Ok(val);
             }
