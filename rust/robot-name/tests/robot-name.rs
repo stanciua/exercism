@@ -1,4 +1,5 @@
 extern crate robot_name as robot;
+extern crate itertools;
 
 // These are the expected signatures:
 //
@@ -66,4 +67,29 @@ fn test_new_name_is_different_from_old_name() {
     r.reset_name();
     let n2 = r.name().to_string();
     assert!(n1 != n2, "Robot name should change when reset");
+}
+
+#[test]
+fn test_when_registry_is_full_with_all_generated_names() {
+    let v = vec!['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q',
+                 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+
+    // clean the registry first
+    robot::ROBOTSREGISTRY.lock().unwrap().clear();
+
+    use itertools::Itertools;
+    v.clone()
+        .into_iter()
+        .cartesian_product(v.into_iter())
+        .cartesian_product((100..1000).into_iter())
+        .map(|((a, b), c)| format!("{}{}{}", a, b, c))
+        .fold(&robot::ROBOTSREGISTRY, |ref acc, val| {
+            acc.lock().unwrap().insert(val);
+            acc
+        });
+
+    // adding one more robot should cause the robot name to be already present in the registry
+    // after some iterations
+    let r = robot::Robot::new();
+    assert!(robot::ROBOTSREGISTRY.lock().unwrap().contains(r.name()));
 }
