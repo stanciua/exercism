@@ -70,7 +70,7 @@ fn test_new_name_is_different_from_old_name() {
 }
 
 #[test]
-fn test_when_registry_is_full_with_all_generated_names() {
+fn test_when_robot_name_already_in_registry() {
     let v = vec!['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q',
                  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
