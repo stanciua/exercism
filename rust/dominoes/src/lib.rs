@@ -11,7 +11,6 @@ pub fn chain(input: &[(usize, usize)]) -> Option<Vec<(usize, usize)>> {
     let mut solution = Vec::new();
     for permutation in input_permutations {
         let mut cur_cell = permutation[0];
-        let first_cell = cur_cell;
         solution.push(cur_cell);
         for &(x, y) in permutation.iter().skip(1) {
             if cur_cell.1 == x {
@@ -25,7 +24,7 @@ pub fn chain(input: &[(usize, usize)]) -> Option<Vec<(usize, usize)>> {
         // if len of solution is the same as the len of input we need to check if
         // the first digit is the same as the last one
         if solution.len() == input.len() {
-            if first_cell.0 == cur_cell.1 {
+            if solution[0].0 == cur_cell.1 {
                 // found the solution, just return and ignore the other solutions
                 return Some(solution);
             }
