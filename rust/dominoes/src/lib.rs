@@ -6,23 +6,20 @@ pub fn chain(input: &[(usize, usize)]) -> Option<Vec<(usize, usize)>> {
         return Some(vec![]);
     }
 
-    let mut cell_and_inv_cell_vec = input.iter()
-                                         .map(|&(x, y)| ((x, y), (y, x)))
-                                         .collect::<Vec<_>>();
-
-    let heap = Heap::new(&mut cell_and_inv_cell_vec);
+    let mut input_as_vec = input.iter().cloned().collect::<Vec<_>>();
+    let input_permutations = Heap::new(&mut input_as_vec);
     let mut solution = Vec::new();
-    for o in heap {
-        let mut cur_cell = o[0].0;
+    for permutation in input_permutations {
+        let mut cur_cell = permutation[0];
         let first_cell = cur_cell;
         solution.push(cur_cell);
-        for &(cell, inv_cell) in o.iter().skip(1) {
-            if cur_cell.1 == cell.0 {
-                cur_cell = cell;
-                solution.push(cell);
-            } else if cur_cell.1 == inv_cell.0 {
-                cur_cell = inv_cell;
-                solution.push(inv_cell);
+        for &(x, y) in permutation.iter().skip(1) {
+            if cur_cell.1 == x {
+                cur_cell = (x, y);
+                solution.push(cur_cell);
+            } else if cur_cell.1 == y {
+                cur_cell = (y, x);
+                solution.push(cur_cell);
             }
         }
         // if len of solution is the same as the len of input we need to check if
