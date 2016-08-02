@@ -4,3 +4,5 @@ version = "0.0.0"
 
 [dependencies]
 rayon = "0.4.0"
+crossbeam = "0.2.9"
+scoped_threadpool = "0.1.7"
