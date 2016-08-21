@@ -2,25 +2,102 @@ extern crate itertools;
 use std::collections::HashSet;
 use itertools::Itertools;
 
-pub fn count(lines: &[&str]) -> usize {
+pub fn count(lines: &[&str]) -> i32 {
+    if lines.is_empty() {
+        return 0;
+    }
     let rectangle_corners = lines.iter().enumerate().fold(HashSet::new(),
                                                           |acc, (outer_idx, val)| {
-        val.chars().enumerate().filter(|&(_, ch)| ch == '+').fold(acc, |mut acc, (inner_idx, _)| {
-            acc.insert((outer_idx, inner_idx));
-            acc
-        })
+        val.chars()
+            .enumerate()
+            .filter(|&(_, ch)| ch == '+')
+            .fold(acc, |mut acc, (inner_idx, _)| {
+                acc.insert((outer_idx as i32, inner_idx as i32));
+                acc
+            })
     });
 
-    let (no_rows, no_cols) = (lines.len(), lines[0].len());
+    // get the the list of total points from the diagram, then grab all the
+    // right corners and feed it to a function that will calculate the left
+    // corner
+    let rectangles = (0i32..lines.len() as i32)
+        .cartesian_product(0i32..lines[0].len() as i32)
+        .filter(|&(x, y)| x != 0 && y != 0)
+        .map(|corner| get_list_of_rects_from_right_corner(corner))
+        .fold(HashSet::<((i32, i32), (i32, i32))>::new(), |mut acc, val| {
+            acc.extend(val.iter());
+            acc
+        });
 
 
-    let points = (0..no_rows).cartesian_product(0..no_cols).collect::<Vec<_>>();
-
-    let right_corners = points.iter().filter(|&&(x, y)| x != 0 && y != 0).collect::<Vec<_>>();
-
-    0
+    count_rectangles(&rectangle_corners, &rectangles, lines)
 }
 
-fn get_list_of_rects_from_point(point: (u32, u32), board_size: (u32, u32)) -> Vec<((u32, u32), (u32, u32)) {
+// gets the list of rectangles, (up_left, right_down) pairs starting from down right corner
+fn get_list_of_rects_from_right_corner(point: (i32, i32)) -> HashSet<((i32, i32), (i32, i32))> {
+    let mut v = HashSet::new();
+    let mut left_corner = (point.0 - 1, point.1 - 1);
+    // populates up left and down right pair of corners
+    while left_corner.0 >= 0 {
+        while left_corner.1 >= 0 {
+            v.insert((left_corner, point));
+            left_corner = (left_corner.0, left_corner.1 - 1);
+        }
+        left_corner = (left_corner.0 - 1, point.1 - 1);
+    }
 
+    v
+
+}
+
+// this function validates if the rectangle has been formed using valid ASCII
+// characters
+//   - horizontal: + | -
+//   - vertical:   + | |
+fn does_rectangle_contains_valid_chars(up_left: (i32, i32),
+                                       right_down: (i32, i32),
+                                       lines: &[&str])
+                                       -> bool {
+    lines.iter()
+            .skip(up_left.0 as usize)
+            .take(1)
+            .next()
+            .unwrap()[up_left.1 as usize..right_down.1 as usize + 1]
+        .chars()
+        .all(|y| y == '+' || y == '-') &&
+    lines.iter()
+            .skip(right_down.0 as usize)
+            .take(1)
+            .next()
+            .unwrap()[up_left.1 as usize..right_down.1 as usize + 1]
+        .chars()
+        .all(|y| y == '+' || y == '-') &&
+    lines.iter()
+        .skip(up_left.0 as usize)
+        .take(right_down.0 as usize - up_left.0 as usize + 1)
+        .map(|str| str.chars().skip(up_left.1 as usize).take(1).next().unwrap())
+        .all(|c| c == '+' || c == '|') &&
+    lines.iter()
+        .skip(up_left.0 as usize)
+        .take(right_down.0 as usize - up_left.0 as usize + 1)
+        .map(|str| str.chars().skip(right_down.1 as usize).take(1).next().unwrap())
+        .all(|c| c == '+' || c == '|')
+
+}
+
+fn count_rectangles(rectangle_points: &HashSet<(i32, i32)>,
+                    from: &HashSet<((i32, i32), (i32, i32))>,
+                    lines: &[&str])
+                    -> i32 {
+    let mut count = 0;
+    for &(up_left_corner, right_down_corner) in from {
+        if rectangle_points.contains(&up_left_corner) &&
+           rectangle_points.contains(&right_down_corner) &&
+           rectangle_points.contains(&(right_down_corner.0, up_left_corner.1)) &&
+           rectangle_points.contains(&(up_left_corner.0, right_down_corner.1)) &&
+           does_rectangle_contains_valid_chars(up_left_corner, right_down_corner, lines) {
+            count += 1;
+        }
+    }
+    count
 }
