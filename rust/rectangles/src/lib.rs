@@ -2,6 +2,8 @@ extern crate itertools;
 use std::collections::HashSet;
 use itertools::Itertools;
 
+type Point = (i32, i32);
+
 pub fn count(lines: &[&str]) -> i32 {
     if lines.is_empty() {
         return 0;
@@ -24,7 +26,7 @@ pub fn count(lines: &[&str]) -> i32 {
         .cartesian_product(0i32..lines[0].len() as i32)
         .filter(|&(x, y)| x != 0 && y != 0)
         .map(|corner| get_list_of_rects_from_right_corner(corner))
-        .fold(HashSet::<((i32, i32), (i32, i32))>::new(), |mut acc, val| {
+        .fold(HashSet::<(Point, Point)>::new(), |mut acc, val| {
             acc.extend(val.iter());
             acc
         });
@@ -34,7 +36,7 @@ pub fn count(lines: &[&str]) -> i32 {
 }
 
 // gets the list of rectangles, (up_left, right_down) pairs starting from down right corner
-fn get_list_of_rects_from_right_corner(point: (i32, i32)) -> HashSet<((i32, i32), (i32, i32))> {
+fn get_list_of_rects_from_right_corner(point: Point) -> HashSet<(Point, Point)> {
     let mut v = HashSet::new();
     let mut left_corner = (point.0 - 1, point.1 - 1);
     // populates up left and down right pair of corners
@@ -54,10 +56,7 @@ fn get_list_of_rects_from_right_corner(point: (i32, i32)) -> HashSet<((i32, i32)
 // characters
 //   - horizontal: + | -
 //   - vertical:   + | |
-fn does_rectangle_contains_valid_chars(up_left: (i32, i32),
-                                       right_down: (i32, i32),
-                                       lines: &[&str])
-                                       -> bool {
+fn does_rectangle_contains_valid_chars(up_left: Point, right_down: Point, lines: &[&str]) -> bool {
     lines.iter()
             .skip(up_left.0 as usize)
             .take(1)
@@ -85,8 +84,8 @@ fn does_rectangle_contains_valid_chars(up_left: (i32, i32),
 
 }
 
-fn count_rectangles(rectangle_points: &HashSet<(i32, i32)>,
-                    from: &HashSet<((i32, i32), (i32, i32))>,
+fn count_rectangles(rectangle_points: &HashSet<Point>,
+                    from: &HashSet<(Point, Point)>,
                     lines: &[&str])
                     -> i32 {
     let mut count = 0;
