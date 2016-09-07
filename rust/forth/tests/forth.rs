@@ -168,6 +168,15 @@ fn redefining_an_existing_word() {
 }
 
 #[test]
+fn redefining_an_existing_new_word_with_a_new_word() {
+    let mut f = Forth::new();
+    f.eval(": foo dup dup ;");
+    f.eval(": bar foo foo ;");
+    f.eval("1 bar");
+    assert_eq!("1 1 1 1 1", f.format_stack());
+}
+
+#[test]
 fn redefining_an_existing_built_in_word() {
     let mut f = Forth::new();
     f.eval(": swap dup ;");
@@ -181,6 +190,14 @@ fn defining_words_with_odd_characters() {
     f.eval(": € 220371 ; €");
     assert_eq!("220371", f.format_stack());
 }
+
+#[test]
+fn use_existing_word_before_adding_a_new_word() {
+    let mut f = Forth::new();
+    f.eval("1 DUP : € 220371 ; €");
+    assert_eq!("1 1 220371", f.format_stack());
+}
+
 
 #[test]
 fn defining_a_number() {

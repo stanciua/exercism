@@ -6,7 +6,7 @@ pub type ForthResult = Result<(), Error>;
 #[derive(Default)]
 pub struct Forth {
     stack: Vec<Value>,
-    words: HashMap<String, String>,
+    word_table: HashMap<String, String>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -21,14 +21,14 @@ impl Forth {
     pub fn new() -> Forth {
         Forth {
             stack: Vec::default(),
-            words: (vec![("*".to_string(), "".to_string()),
-                         ("/".to_string(), "".to_string()),
-                         ("+".to_string(), "".to_string()),
-                         ("-".to_string(), "".to_string()),
-                         ("DUP".to_string(), "".to_string()),
-                         ("DROP".to_string(), "".to_string()),
-                         ("SWAP".to_string(), "".to_string()),
-                         ("OVER".to_string(), "".to_string())]
+            word_table: (vec![("*".to_string(), "".to_string()),
+                              ("/".to_string(), "".to_string()),
+                              ("+".to_string(), "".to_string()),
+                              ("-".to_string(), "".to_string()),
+                              ("DUP".to_string(), "".to_string()),
+                              ("DROP".to_string(), "".to_string()),
+                              ("SWAP".to_string(), "".to_string()),
+                              ("OVER".to_string(), "".to_string())]
                 .into_iter()
                 .collect::<HashMap<_, _>>()),
         }
@@ -39,42 +39,63 @@ impl Forth {
         self.stack.iter().map(|tkn| tkn.to_string()).collect::<Vec<_>>().join(" ")
     }
 
-    pub fn eval(&mut self, input: &str) -> ForthResult {
-        // make sure we check for error cases when new words are not ; terminated
-        if input.starts_with(":") && !input.contains(";") {
-            return Err(Error::InvalidWord);
-        }
-
-        // if multiple new words separated by ; are present we need to split
-        // them and process them accordingly
-        let (new_words, others): (Vec<&str>, Vec<&str>) = input.split(";")
-            .partition(|str| str.starts_with(":"));
-        for new_word in new_words {
-            if new_word.starts_with(":") {
-                let mut tokens = new_word.split(|c: char| c.is_whitespace() || c.is_control())
-                    .filter(|str| !str.is_empty())
-                    .collect::<Vec<_>>();
-                tokens.push(";");
-
-                try!(self.check_for_new_word(&tokens));
-            }
-
-        }
-        let others_joined = others.join(" ");
-        let tokens = others_joined.split(|c: char| c.is_whitespace() || c.is_control())
+    fn get_words_and_non_words_from_input(input: &str)
+                                          -> Result<(Vec<Vec<&str>>, Vec<&str>), Error> {
+        let tokens = input.split(|c: char| c.is_whitespace() || c.is_control())
             .filter(|str| !str.is_empty())
             .collect::<Vec<_>>();
 
+        let mut inside_new_word = false;
+        let mut new_word = Vec::new();
+        let mut non_new_words = Vec::new();
+        let mut new_words = Vec::new();
 
         for tkn in tokens {
-            let mut rslt = 0;
+            match tkn {
+                ":" => {
+                    new_word.push(tkn);
+                    inside_new_word = true;
+                }
+                ";" => {
+                    if !inside_new_word {
+                        return Err(Error::InvalidWord);
+                    }
+                    new_word.push(tkn);
+                    new_words.push(new_word.clone());
+                    inside_new_word = false;
+                }
+                _ if inside_new_word => {
+                    new_word.push(tkn);
+                }
+                _ => {
+                    non_new_words.push(tkn);
+                }
+            }
+        }
+
+        if inside_new_word {
+            return Err(Error::InvalidWord);
+        }
+
+        Ok((new_words, non_new_words))
+
+    }
+
+    pub fn eval(&mut self, input: &str) -> ForthResult {
+
+        let (new_words, non_new_words) = try!(Forth::get_words_and_non_words_from_input(input));
+
+        for new_word in new_words {
+            try!(self.validate_and_insert_new_word_into_table(&new_word));
+        }
+        for tkn in non_new_words {
             let number = tkn.parse::<Value>();
             match tkn {
                 "+" => {
                     if self.stack.is_empty() {
                         return Err(Error::StackUnderflow);
                     }
-                    rslt = self.stack.iter().fold(0, |mut acc, &x| {
+                    let rslt = self.stack.iter().fold(0, |mut acc, &x| {
                         acc += x;
                         acc
                     });
@@ -85,11 +106,13 @@ impl Forth {
                     if self.stack.is_empty() {
                         return Err(Error::StackUnderflow);
                     }
-                    let first_elem = *self.stack.first().unwrap();
-                    rslt = self.stack.iter().skip(1).fold(first_elem, |mut acc, &x| {
-                        acc -= x;
-                        acc
-                    });
+                    let rslt = self.stack
+                        .iter()
+                        .skip(1)
+                        .fold(*self.stack.first().unwrap(), |mut acc, &x| {
+                            acc -= x;
+                            acc
+                        });
                     self.stack.clear();
                     self.stack.push(rslt);
                 }
@@ -97,7 +120,7 @@ impl Forth {
                     if self.stack.is_empty() {
                         return Err(Error::StackUnderflow);
                     }
-                    rslt = self.stack.iter().fold(1, |mut acc, &x| {
+                    let rslt = self.stack.iter().fold(1, |mut acc, &x| {
                         acc *= x;
                         acc
                     });
@@ -115,7 +138,7 @@ impl Forth {
                     if self.stack.len() == 1 && first_elem == 0 {
                         return Err(Error::DivisionByZero);
                     }
-                    rslt = self.stack.iter().skip(1).fold(first_elem, |mut acc, &x| {
+                    let rslt = self.stack.iter().skip(1).fold(first_elem, |mut acc, &x| {
                         if x == 0 {
                             division_by_zero = Err(Error::DivisionByZero);
                         }
@@ -126,9 +149,9 @@ impl Forth {
                     self.stack.push(rslt);
                 }
                 _ if number.is_ok() => self.stack.push(number.unwrap()),
-                _ if self.words.get(&tkn.to_uppercase()).is_some() => {
+                _ if self.word_table.get(&tkn.to_uppercase()).is_some() => {
                     let word =
-                        self.words.get(&tkn.to_uppercase()).unwrap_or(&String::new()).clone();
+                        self.word_table.get(&tkn.to_uppercase()).unwrap_or(&String::new()).clone();
                     if !word.is_empty() {
                         try!(self.eval(&word));
                     } else {
@@ -182,11 +205,7 @@ impl Forth {
         Ok(())
     }
 
-    fn check_for_new_word(&mut self, word: &Vec<&str>) -> ForthResult {
-        if word.last() != Some(&";") {
-            return Err(Error::InvalidWord);
-        }
-
+    fn validate_and_insert_new_word_into_table(&mut self, word: &[&str]) -> ForthResult {
         if word.len() < 4 {
             return Err(Error::InvalidWord);
         }
@@ -195,13 +214,13 @@ impl Forth {
             return Err(Error::InvalidWord);
         }
 
-        self.words.insert(word[1].to_string().to_uppercase(),
-                          word.iter()
-                              .cloned()
-                              .skip(2)
-                              .take_while(|tkn| *tkn != ";")
-                              .collect::<Vec<_>>()
-                              .join(" "));
+        self.word_table.insert(word[1].to_string().to_uppercase(),
+                               word.iter()
+                                   .cloned()
+                                   .skip(2)
+                                   .take_while(|tkn| *tkn != ";")
+                                   .collect::<Vec<_>>()
+                                   .join(" "));
 
         Ok(())
     }
