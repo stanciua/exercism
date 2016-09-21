@@ -69,9 +69,9 @@ impl<'a, T: 'a + Debug + Copy + PartialEq> Reactor<'a, T> {
     // We chose not to cover this here, since this exercise is probably enough work as-is.
     pub fn value(&self, id: CellID) -> Option<T> {
         if let Some(val) = self.cells.get(id as usize) {
-            match val {
-                &Cell::Input(v) => return Some(v),
-                &Cell::Compute(ref deps, ref f, _) => {
+            match *val {
+                Cell::Input(v) => return Some(v),
+                Cell::Compute(ref deps, ref f, _) => {
                     return Some(f(deps.iter()
                         .map(|cid| self.value(*cid).unwrap())
                         .collect::<Vec<_>>()
@@ -82,16 +82,15 @@ impl<'a, T: 'a + Debug + Copy + PartialEq> Reactor<'a, T> {
         None
     }
 
-    fn get_dependencies_for_cell_id(&self, id: CellID, impacted_computed_cells: &mut Vec<CellID>) {
+    fn get_dependencies_for_cell_id(&self,
+                                    id: CellID,
+                                    impacted_computed_cells: &mut HashSet<CellID>) {
         for (idx, cell) in self.cells.iter().enumerate() {
-            match cell { 
-                &Cell::Compute(ref deps, _, _) => {
-                    if deps.contains(&id) {
-                        impacted_computed_cells.push(idx as CellID);
-                        self.get_dependencies_for_cell_id(idx as CellID, impacted_computed_cells);
-                    }
+            if let Cell::Compute(ref deps, _, _) = *cell {
+                if deps.contains(&id) {
+                    impacted_computed_cells.insert(idx as CellID);
+                    self.get_dependencies_for_cell_id(idx as CellID, impacted_computed_cells);
                 }
-                _ => {}
             }
         }
 
@@ -106,13 +105,8 @@ impl<'a, T: 'a + Debug + Copy + PartialEq> Reactor<'a, T> {
     //
     // As before, that turned out to add too much extra complexity.
     pub fn set_value(&mut self, id: CellID, new_value: T) -> Result<(), ()> {
-        let mut impacted_computed_cells = Vec::new();
+        let mut impacted_computed_cells = HashSet::new();
         self.get_dependencies_for_cell_id(id, &mut impacted_computed_cells);
-
-        impacted_computed_cells = impacted_computed_cells.into_iter()
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
 
         // callbacks need to be triggered only if the value has been changed
         let computed_cells_old_values = impacted_computed_cells.iter()
@@ -135,16 +129,14 @@ impl<'a, T: 'a + Debug + Copy + PartialEq> Reactor<'a, T> {
 
         let changed_computed_cells = computed_cells_old_values.iter()
             .zip(computed_cells_new_values.iter())
-            .filter(|&(&(_, old_val), &(idx, new_val))| old_val != new_val)
+            .filter(|&(&(_, old_val), &(_, new_val))| old_val != new_val)
             .map(|(&(_, _), &(idx, val))| (idx, val))
             .collect::<Vec<_>>();
 
         for (idx, val) in changed_computed_cells {
-            match self.cells.get_mut(*idx as usize) {
-                Some(&mut Cell::Compute(ref deps, ref mut f, ref mut callbacks)) => {
-                    callbacks.iter_mut().map(|(key, f)| f(val)).all(|_| true);
-                }
-                _ => (),
+            if let Some(&mut Cell::Compute(_, _, ref mut callbacks)) = self.cells
+                .get_mut(*idx as usize) {
+                callbacks.iter_mut().map(|(_, f)| f(val)).all(|_| true);
             }
         }
 
@@ -174,15 +166,11 @@ impl<'a, T: 'a + Debug + Copy + PartialEq> Reactor<'a, T> {
 
         let mut rng = rand::thread_rng();
         let mut clbkid = rng.gen::<CallbackID>();
-        match self.cells[id as usize] {
-            Cell::Compute(_, _, ref mut callbacks) => {
-                while callbacks.contains_key(&clbkid) {
-                    clbkid = rng.gen::<CallbackID>();
-                }
-                callbacks.insert(clbkid, Box::new(callback));
+        if let Cell::Compute(_, _, ref mut callbacks) = self.cells[id as usize] {
+            while callbacks.contains_key(&clbkid) {
+                clbkid = rng.gen::<CallbackID>();
             }
-            _ => (),
-
+            callbacks.insert(clbkid, Box::new(callback));
         }
 
         Ok(clbkid)
