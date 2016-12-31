@@ -8,6 +8,7 @@ class Robot {
   def name(): String = { name_ }
 
   def reset(): Unit = {
+    Robot.cache -= name_
     name_ = Robot.genRandName(2, 3)
   }
 }
