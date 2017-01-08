@@ -1,17 +1,19 @@
+import scala.annotation._
 object Sublist {
+  @tailrec
   private def checkForSuperOrSubLists[T](list1: List[T],
                                          list2: List[T],
                                          subOrSuperList: Int): Int = {
-    var first = list1
-    var second = list2
-    while (!second.isEmpty && second.length >= first.length) {
-      if (first == second.take(first.length)) {
+    if (!list2.isEmpty && list2.length >= list1.length) {
+      if (list1 == list2.take(list1.length)) {
         return subOrSuperList
       }
-      second = second.tail
+    } else {
+      return Unequal
     }
 
-    return Unequal
+    checkForSuperOrSubLists(list1, list2.tail, subOrSuperList)
+
   }
   def sublist[T](list1: List[T], list2: List[T]): Int = {
     list1.length compare list2.length match {
