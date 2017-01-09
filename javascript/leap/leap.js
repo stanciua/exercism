@@ -9,4 +9,5 @@ class Leap {
     return false
   }
 }
+
 module.exports = Leap;
