@@ -22,7 +22,7 @@ class PhoneNumber {
     }
 
     areaCode() {
-        return Immutable.List.of(...this.number()).take(3).join("");
+        return this.number().substr(0, 3);
     }
 
     toString() {
