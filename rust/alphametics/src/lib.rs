@@ -31,45 +31,55 @@ pub fn solve(puzzle: &str) -> Option<HashMap<char, u8>> {
                     v.iter().map(|&(d, c)| d).collect::<HashSet<_>>().len() == v.len() &&
                     v.iter().map(|&(d, c)| c).collect::<HashSet<_>>().len() == v.len()
                 })
+        .map(|v| v.iter().map(|&(x, y)| (y, x as u8)).collect::<Vec<_>>())
         .collect::<Vec<_>>();
 
     for combination in combinations {
+        println!("{:?}", combination);
         if is_combination_alphametic(left_tkns.as_slice(), result, &combination) {
             return Some(combination
-                            .iter()
-                            .map(|&(x, y)| (y, x))
+                            .iter()                            
                             .collect::<HashMap<_, _>>());
         }
     }
     None
 }
 
-fn is_combination_alphametic(left: &[&str], right: &str, combination: &[(u8, char)]) -> bool {
+fn is_combination_alphametic(left: &[&str], right: &str, combination: &[(char, u8)]) -> bool {
     let result = str_to_num(&right, &combination);
 
-    let mut num = 0;
-    for token in left {
-        num += str_to_num(token.to_owned(), combination);
+    let mut num = 0; 
+    for token in left {        
+        num += str_to_num(*token, combination);
     }
 
+    if result == 100 {
+        println!("result: {:?}", result);
+    }
+    
+    if num == 100 {
+        println!("num: {:?}", num);
+    }
+    
     result == num
 }
-fn str_to_num(val: &str, lnums_slice: &[(u8, char)]) -> u8 {
-    println!("val: {:?}", val);
-    println!("lnums_slice: {:?}", lnums_slice);
+fn str_to_num(val: &str, lnums_slice: &[(char, u8)]) -> u32 {
+    // println!("val: {:?}", val);
+    // println!("lnums_slice: {:?}", lnums_slice);
     let mut num = 1;
     let mut val_slice = val;
     for letter in val.chars() {
         let digit = *lnums_slice
                          .iter()
-                         .map(|&(x, y)| (y, x))
                          .collect::<HashMap<_, _>>()
                          .get(&letter)
                          .unwrap();
-        println!("digit: {:?}", digit);
-        num += 10u8.pow(val_slice.len() as u32 - 1) * digit;
+        // println!("digit: {:?}", digit);
+        // println!("val_slice.len(): {:?}", val_slice.len());
+        num += 10u32.pow(val_slice.len() as u32 - 1) * digit as u32;
         val_slice = &val_slice[1..];
     }
+    // println!("num: {:?}", num);
     num
 
 
