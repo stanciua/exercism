@@ -5,8 +5,7 @@ use std::fmt;
 use itertools::Itertools;
 
 struct Puzzle<'a> {
-    left: &'a [&'a str],
-    right: &'a str,
+    all_tkns: Vec<String>,
     all_chars: &'a str,
     char_dig: &'a mut Vec<(char, u8)>,
     leading_zeroes: &'a [char],
@@ -16,9 +15,8 @@ impl<'a> fmt::Debug for Puzzle<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "Puzzle {{left: {:?}, right: {:?}, all_chars: {:?}, char_dig: {:?}, leading_zeroes: {:?}",
-            self.left,
-            self.right,
+            "all_tkns: {:?}, all_chars: {:?}, char_dig: {:?}, leading_zeroes: {:?}",
+            self.all_tkns,
             self.all_chars,
             self.char_dig,
             self.leading_zeroes
@@ -28,15 +26,13 @@ impl<'a> fmt::Debug for Puzzle<'a> {
 
 impl<'a> Puzzle<'a> {
     pub fn new(
-        left: &'a [&'a str],
-        right: &'a str,
+        all_tkns: Vec<String>,
         chars: &'a str,
         char_dig: &'a mut Vec<(char, u8)>,
         leading_zeroes: &'a [char],
     ) -> Puzzle<'a> {
         Puzzle {
-            left: left,
-            right: right,
+            all_tkns: all_tkns,
             all_chars: chars,
             char_dig: char_dig,
             leading_zeroes: leading_zeroes,
@@ -54,7 +50,7 @@ impl<'a> Puzzle<'a> {
 
         self.char_dig.push((letter, digit));
 
-        return true;
+        true
     }
 
     pub fn puzzle_solved(&self) -> bool {
@@ -69,17 +65,14 @@ impl<'a> Puzzle<'a> {
             self.char_dig.remove(idx);
         }
     }
-    pub fn find_solution(&mut self, letter_to_assign: &str) -> bool {
-        println!("Display: {:?}", self);
-
+    pub fn find_solution(&mut self, letter_to_assign: &str, carry: i32) -> bool {
         if letter_to_assign.len() == 0 {
             return self.puzzle_solved();
         }
 
         for d in 0..10 {
-            println!("letter_to_assign: {:?}", letter_to_assign);
             if self.assign_letter(letter_to_assign.chars().take(1).next().unwrap(), d) {
-                if self.find_solution(&letter_to_assign[1..]) {
+                if self.find_solution(&letter_to_assign[1..], 0) {
                     return true;
                 }
                 self.unassign_letter(letter_to_assign.chars().take(1).next().unwrap(), d);
@@ -89,14 +82,14 @@ impl<'a> Puzzle<'a> {
     }
 
     fn is_combination_alphametic(&self) -> bool {
-        let result = self.str_to_num(self.right, self.char_dig);
+        let result = self.str_to_num(self.all_tkns.last().unwrap(), self.char_dig);
         if result.is_none() {
             return false;
         }
 
         let mut num = 0;
-        for token in self.left {
-            let rslt = self.str_to_num(*token, self.char_dig);
+        for token in &self.all_tkns[..self.all_tkns.len() - 1] {
+            let rslt = self.str_to_num(&*token, self.char_dig);
             if rslt.is_none() {
                 return false;
             }
@@ -112,17 +105,36 @@ impl<'a> Puzzle<'a> {
         let letter_to_digit_map = lnums_slice.iter().cloned().collect::<HashMap<_, _>>();
 
         if let Some(l) = val.chars().take(1).next() {
-            if letter_to_digit_map[&l] == 0 {
+            if l != '_' && letter_to_digit_map[&l] == 0 {
                 return None;
             }
         }
         for letter in val.chars() {
-            let digit = letter_to_digit_map[&letter];
+            let mut digit = 0;
+            if letter == '_' {
+                digit = 0;
+            } else {
+                digit = letter_to_digit_map[&letter];
+            }
             num += 10u32.pow(val_slice.len() as u32 - 1) * digit as u32;
             val_slice = &val_slice[1..];
         }
 
         Some(num)
+    }
+}
+
+fn normalize_tokens(tkns: &mut [String]) {
+    let mut tkn_max_lgth = tkns[0].len();
+    if let Some(max) = tkns.iter_mut().max_by(|x, y| x.len().cmp(&y.len())) {
+        tkn_max_lgth = max.len();
+    }
+    for tkn in tkns.iter_mut() {
+        if tkn.len() < tkn_max_lgth {
+            let mut padded_tkn = "_".repeat(tkn_max_lgth - tkn.len());
+            padded_tkn.extend(tkn.chars());
+            *tkn = padded_tkn;
+        }
     }
 }
 
@@ -158,16 +170,15 @@ pub fn solve(puzzle: &str) -> Option<HashMap<char, u8>> {
         .unique()
         .collect::<String>();
 
-    let mut char_dig = Vec::new();
-    let mut puzzle = Puzzle::new(
-        &left_tkns,
-        result,
-        &all_chars,
-        &mut char_dig,
-        &leading_zero_letters,
-    );
+    let mut all_tkns = left_tkns.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+    all_tkns.push(result.to_string());
 
-    if puzzle.find_solution(puzzle.all_chars) {
+    normalize_tokens(all_tkns.as_mut_slice());
+
+    let mut char_dig = Vec::new();
+    let mut puzzle = Puzzle::new(all_tkns, &all_chars, &mut char_dig, &leading_zero_letters);
+
+    if puzzle.find_solution(puzzle.all_chars, 0) {
         return Some(
             puzzle
                 .char_dig
