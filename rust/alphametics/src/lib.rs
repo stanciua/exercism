@@ -5,9 +5,9 @@ use std::fmt;
 use itertools::Itertools;
 
 struct Puzzle<'a> {
-    left_to_right_data: &'a Vec<(String, char)>,
+    data: &'a [&'a str],
     all_chars: &'a str,
-    char_dig: &'a mut Vec<(char, u8)>,
+    char_dig: HashMap<char, u8>,
     leading_zeroes: &'a [char],
 }
 
@@ -15,8 +15,8 @@ impl<'a> fmt::Debug for Puzzle<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "left_to_right_data: {:?}, all_chars: {:?}, char_dig: {:?}, leading_zeroes: {:?}",
-            self.left_to_right_data,
+            "data: {:?}, all_chars: {:?}, char_dig: {:?}, leading_zeroes: {:?}",
+            self.data,
             self.all_chars,
             self.char_dig,
             self.leading_zeroes
@@ -25,58 +25,127 @@ impl<'a> fmt::Debug for Puzzle<'a> {
 }
 
 impl<'a> Puzzle<'a> {
-    pub fn new(
-        left_to_right_data: &'a Vec<(String, char)>,
-        chars: &'a str,
-        char_dig: &'a mut Vec<(char, u8)>,
-        leading_zeroes: &'a [char],
-    ) -> Puzzle<'a> {
+    pub fn new(data: &'a [&'a str], chars: &'a str, leading_zeroes: &'a [char]) -> Puzzle<'a> {
         Puzzle {
-            left_to_right_data: left_to_right_data,
+            data: data,
             all_chars: chars,
-            char_dig: char_dig,
+            char_dig: HashMap::new(),
             leading_zeroes: leading_zeroes,
         }
     }
 
     pub fn assign_letter(&mut self, letter: char, digit: u8) -> bool {
+        println!("assing letter: {:?}, digit: {:?}", letter, digit);
         if self.leading_zeroes
             .iter()
             .find(|&&c| c == letter && digit == 0)
-            .is_some() || self.char_dig.iter().find(|&&(_, d)| digit == d).is_some()
+            .is_some() ||
+            self.char_dig
+                .iter()
+                .find(|&(&l, &d)| digit == d && l != '_')
+                .is_some()
         {
             return false;
         }
 
-        self.char_dig.push((letter, digit));
-
+        // println!("assing letter: {:?}, digit: {:?}", letter, digit);
+        self.char_dig.insert(letter, digit);
         true
     }
 
     pub fn unassign_letter(&mut self, letter: char, digit: u8) {
-        if let Some(idx) = self.char_dig
-            .iter()
-            .position(|&(x, y)| x == letter && digit == y)
-        {
-            self.char_dig.remove(idx);
+        println!("unassign letter: {:?}", letter);
+        let mut found = false;
+        match self.char_dig.get(&letter) {
+            Some(&v) => {
+                if v == digit {
+                    found = true;
+                }
+            }
+            None => (),
+        }
+
+        if found {
+            // println!("unassign letter: {:?}", letter);
+            self.char_dig.remove(&letter);
         }
     }
 
-    pub fn find_solution(&mut self, carry: i32) -> bool {
-        println!("puzzle: {:?}", *self);
-        // if letter_to_assign.len() == 0 {
-        //     return false;
-        // }
 
-        // for d in 0..10 {
-        //     if self.assign_letter(letter_to_assign.chars().take(1).next().unwrap(), d) {
-        //         if self.find_solution(0) {
-        //             return true;
-        //         }
-        //         self.unassign_letter(letter_to_assign.chars().take(1).next().unwrap(), d);
-        //     }
-        // }
-        // return false;
+    pub fn find_solution(
+        &mut self,
+        add_data: &[&str],
+        assign_letters: &str,
+        result: &mut Vec<bool>,
+        mut carry: i32,
+    ) -> bool {
+        // println!("add_data: {:?}", add_data);
+        // println!("assign_letters: {:?}", assign_letters);
+        if add_data.len() == 0 {
+            return result.iter().all(|&x| x == true);
+        }
+
+        if add_data[0] == "__I" && assign_letters.len() == 0 {
+            println!("boom!");
+            println!("puzzle: {:?}", *self);
+        }
+        if self.char_dig.len() == add_data[0].chars().collect::<HashSet<_>>().len() {
+            // println!("puzzle: {:?}", *self);
+            // println!("assign_letters: {:?}", assign_letters);
+            // println!("add_data: {:?}", add_data);
+            // we can compute the now and compare it to the result
+            let mut left = add_data[0][..add_data[0].len() - 1].chars().fold(
+                0,
+                |mut acc, v| {
+                    acc += self.char_dig[&v];
+                    acc
+                },
+            );
+
+
+            // println!("left is: {:?}", left);
+            // add the carry if non-zero
+            left += carry as u8;
+
+            if left >= 10 {
+                carry = 1;
+                left -= 10;
+            } else {
+                carry = 0
+            }
+
+
+            if self.char_dig[&add_data[0].chars().last().unwrap()] == left {
+                result.push(true);
+            } else {
+                result.push(false);
+            }
+
+            // clear the letter to digit mapping
+            self.char_dig.clear();
+            // println!("cleard self.char_dig!!!");
+            if add_data[1..].len() == 0 {
+                self.find_solution(&add_data[1..], "", result, carry);
+            } else {
+                self.find_solution(&add_data[1..], add_data[1..][0], result, carry);
+            }
+
+        } else {
+            for d in 0..10 {
+                println!("digit: {:?}", d);
+                println!("puzzle: {:?}", *self);
+                println!("assign_letters: {:?}", assign_letters);
+                println!("add_data: {:?}", add_data);
+                if self.assign_letter(assign_letters.chars().take(1).next().unwrap(), d) {
+                    if self.find_solution(add_data, &assign_letters[1..], result, carry) {
+                        return true;
+                    }
+                    self.unassign_letter(assign_letters.chars().take(1).next().unwrap(), d);
+                }
+            }
+            return false;
+        }
+
         false
     }
 }
@@ -128,27 +197,29 @@ pub fn solve(puzzle: &str) -> Option<HashMap<char, u8>> {
 
     normalize_tokens(left_tkns.as_mut_slice(), result.len());
 
-    let mut char_dig = Vec::new();
-    let mut left_letters = &group_add_letter_togheter(&left_tkns);
+    let left_and_right_data = group_add_letter_togheter(&left_tkns)
+        .into_iter()
+        .zip(result.chars())
+        .map(|(mut s, c)| {
+            s.push(c);
+            s
+        })
+        .collect::<Vec<_>>();
 
+    left_tkns.push(result.to_string());
+    let left_and_right_data = left_and_right_data
+        .iter()
+        .rev()
+        .map(|x| x.as_str())
+        .collect::<Vec<_>>();
     let mut puzzle = Puzzle::new(
-        &left_letters
-            .iter()
-            .zip(result.chars())
-            .collect::<Vec<(_, _)>>(),
+        left_and_right_data.as_slice(),
         &all_chars,
-        &mut char_dig,
         &leading_zero_letters,
     );
 
-    if puzzle.find_solution(0) {
-        return Some(
-            puzzle
-                .char_dig
-                .iter()
-                .map(|&(x, y)| (x, y))
-                .collect::<HashMap<_, _>>(),
-        );
+    if puzzle.find_solution(puzzle.data, &puzzle.data[0], &mut vec![], 0) {
+        return Some(puzzle.char_dig);
     }
 
     None
