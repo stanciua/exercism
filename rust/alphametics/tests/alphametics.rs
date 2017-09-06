@@ -27,7 +27,6 @@ fn test_leading_zero_solution_is_invalid() {
 }
 
 #[test]
-#[ignore]
 fn test_puzzle_with_four_letters() {
     assert_alphametic_solution_eq("AS + A == MOM", &[('A', 9), ('S', 2), ('M', 1), ('O', 0)]);
 }

@@ -3,142 +3,7 @@ extern crate itertools;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use itertools::Itertools;
-
-struct Puzzle<'a> {
-    data: &'a [&'a str],
-    all_chars: &'a str,
-    char_dig: HashMap<char, u8>,
-    leading_zeroes: &'a [char],
-}
-
-impl<'a> fmt::Debug for Puzzle<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "data: {:?}, all_chars: {:?}, char_dig: {:?}, leading_zeroes: {:?}",
-            self.data,
-            self.all_chars,
-            self.char_dig,
-            self.leading_zeroes
-        )
-    }
-}
-
-impl<'a> Puzzle<'a> {
-    pub fn new(data: &'a [&'a str], chars: &'a str, leading_zeroes: &'a [char]) -> Puzzle<'a> {
-        let mut puzzle = Puzzle {
-            data: data,
-            all_chars: chars,
-            char_dig: HashMap::new(),
-            leading_zeroes: leading_zeroes,
-        };
-
-        puzzle.char_dig.entry('_').or_insert(0);
-        puzzle
-    }
-
-    pub fn assign_letter(&mut self, letter: char, digit: u8) -> bool {
-        println!("try assing letter: {:?} to digit: {:?}", letter, digit);
-        if letter == '_' {
-            return true;
-        }
-        if self.leading_zeroes
-            .iter()
-            .find(|&&c| c == letter && digit == 0)
-            .is_some() || self.char_dig.iter().find(|&(_, &d)| digit == d).is_some()
-        {
-            return false;
-        }
-
-        println!("assing letter: {:?} to digit: {:?}", letter, digit);
-        self.char_dig.insert(letter, digit);
-        true
-    }
-
-    pub fn unassign_letter(&mut self, letter: char, digit: u8) {
-        println!("try unassing letter: {:?} to digit: {:?}", letter, digit);
-        // don't remove _ from the map, it should always remain in there
-        if letter == '_' {
-            return;
-        }
-        let mut found = false;
-        match self.char_dig.get(&letter) {
-            Some(&v) => {
-                if v == digit {
-                    found = true;
-                }
-            }
-            None => (),
-        }
-
-        println!("unassing letter: {:?} to digit: {:?}", letter, digit);
-        if found {
-            self.char_dig.remove(&letter);
-        }
-    }
-
-
-    pub fn find_solution(
-        &mut self,
-        data: &[&str],
-        assign_letters: &str,
-        result: &mut Vec<bool>,
-        mut carry: i32,
-    ) -> bool {
-        if data.len() == 0 {
-            return result.iter().all(|&x| x == true);
-        }
-
-        let length = assign_letters.len();
-        if length < data.len() * data[0].len() && (length % data[0].len()) == 0 {
-            let p = (data.len() * data[0].len() - assign_letters.len()) / data[0].len() - 1;
-            println!("p: {:?}", p);
-            // we can compute the now and compare it to the result
-            let mut left = data[p][..data[0].len() - 1].chars().fold(0, |mut acc, v| {
-                acc += self.char_dig[&v];
-                acc
-            });
-
-            // add the carry if non-zero
-            left += carry as u8;
-
-            if left >= 10 {
-                carry = 1;
-                left -= 10;
-            } else {
-                carry = 0
-            }
-
-            if self.char_dig[&data[p].chars().last().unwrap()] == left {
-            } else {
-                result.push(false);
-            }
-        }
-
-        for d in 0..10 {
-            println!("PUZZLE: {:?}", *self);
-            println!("ASSIGN_LETTERS: {:?}", assign_letters);
-            println!("DATA: {:?}", data);
-            result.push(true);
-            if self.assign_letter(assign_letters.chars().take(1).next().unwrap(), d) {
-                if self.find_solution(data, &assign_letters[1..], result, carry) {
-                    return true;
-                }
-            }
-            self.unassign_letter(assign_letters.chars().take(1).next().unwrap(), d);
-        }
-        return false;
-    }
-}
-fn normalize_tokens(tkns: &mut [String], max_len: usize) {
-    for tkn in tkns.iter_mut() {
-        if tkn.len() < max_len {
-            let mut padded_tkn = "_".repeat(max_len - tkn.len());
-            padded_tkn.extend(tkn.chars());
-            *tkn = padded_tkn;
-        }
-    }
-}
+use std::cmp;
 
 pub fn solve(puzzle: &str) -> Option<HashMap<char, u8>> {
     let puzzle_split = puzzle.split("==").map(|s| s.trim()).collect::<Vec<_>>();
@@ -146,16 +11,21 @@ pub fn solve(puzzle: &str) -> Option<HashMap<char, u8>> {
         return None;
     }
     let result = puzzle_split[1];
-    let left_tkns = puzzle_split[0]
+    let mut data = puzzle_split[0]
         .split('+')
         .map(|s| s.trim())
         .collect::<Vec<_>>();
 
-    let mut leading_zero_letters = left_tkns
-        .iter()
+    data.push(result);
+
+    let data = normalize_tokens(data.as_mut_slice(), result.len());
+    let data = data.iter().map(|s| s.as_str()).collect::<Vec<_>>();
+    println!("data: {:?}", data);
+    let mut leading_zero_letters = data.iter()
         .map(|s| s.chars().take(1).next().unwrap())
         .unique()
         .collect::<Vec<_>>();
+
     leading_zero_letters.push(result.chars().take(1).next().unwrap());
 
     let leading_zero_letters = leading_zero_letters
@@ -163,64 +33,244 @@ pub fn solve(puzzle: &str) -> Option<HashMap<char, u8>> {
         .collect::<HashSet<_>>()
         .iter()
         .map(|&x| x)
-        .collect::<Vec<_>>();
-
-    let all_chars = left_tkns
-        .iter()
-        .flat_map(|s| s.chars())
-        .chain(puzzle_split[1].chars())
-        .unique()
         .collect::<String>();
 
-    let mut left_tkns = left_tkns.iter().map(|x| x.to_string()).collect::<Vec<_>>();
-
-
-    normalize_tokens(left_tkns.as_mut_slice(), result.len());
-
-    let left_and_right_data = group_add_letter_togheter(&left_tkns)
-        .into_iter()
-        .zip(result.chars())
-        .map(|(mut s, c)| {
-            s.push(c);
-            s
-        })
-        .collect::<Vec<_>>();
-
-    left_tkns.push(result.to_string());
-    let left_and_right_data = left_and_right_data
-        .iter()
-        .rev()
-        .map(|x| x.as_str())
-        .collect::<Vec<_>>();
-
-    let assign_letters = left_and_right_data
-        .iter()
-        .flat_map(|s| s.chars())
-        .collect::<String>();
-    let mut puzzle = Puzzle::new(
-        left_and_right_data.as_slice(),
-        &all_chars,
-        &leading_zero_letters,
-    );
-
-    if puzzle.find_solution(puzzle.data, &assign_letters, &mut vec![], 0) {
-        return Some(puzzle.char_dig);
+    let mut m = HashMap::new();
+    m.entry('_').or_insert(0);
+    if find_solution(
+        data.as_slice(),
+        &mut m,
+        &mut 0,
+        0,
+        0,
+        data.len(),
+        (data[0].len() - 1) as i8,
+        leading_zero_letters.as_str(),
+    )
+    {
+        m.remove(&'_');
+        return Some(m);
     }
 
     None
 }
 
-fn group_add_letter_togheter<'a>(left_tkns: &'a [String]) -> Vec<String> {
-    let mut output = Vec::new();
-    for i in 0..left_tkns[0].len() {
-        let letters = left_tkns.iter().fold(String::new(), |mut acc, tkn| {
-            if let Some(l) = tkn.chars().skip(i).take(1).next() {
-                acc.push(l);
-            }
-            acc
-        });
+fn assign_letter(m: &mut HashMap<char, u8>, leading_zeroes: &str, letter: char, digit: u8) -> bool {
+    if leading_zeroes
+        .chars()
+        .find(|&c| c == letter && digit == 0)
+        .is_some() || m.iter().find(|&(_, &d)| digit == d).is_some()
+    {
+        return false;
+    }
 
-        output.push(letters);
+    m.insert(letter, digit);
+
+    return true;
+}
+
+pub fn unassign_letter(m: &mut HashMap<char, u8>, letter: char, digit: u8) {
+    if let Some(idx) = m.iter().position(|(&x, &y)| x == letter && digit == y) {
+        m.remove(&letter);
+    }
+}
+
+fn find_solution(
+    data: &[&str],
+    m: &mut HashMap<char, u8>,
+    carry: &mut u8,
+    sum: u8,
+    curr_row: usize,
+    max_rows: usize,
+    curr_col: i8,
+    leading_zero_letters: &str,
+) -> bool {
+    // println!("M: {:?}", m);
+    // println!("CARRY: {:?}", *carry);
+    // println!("SUM: {:?}", sum);
+    // println!("CURR_ROW: {:?}", curr_row);
+    // println!("CURR_COL: {:?}", curr_col);
+    // // If we are on the last iterm of data, we are in the SUM, this means that
+    // // this has the leftmost digit of the terms
+    // // If we try to assign a char in one of the addends
+    // let mut mm = HashMap::new();
+    // mm.entry('_').or_insert(0);
+    // mm.entry('I').or_insert(1);
+    // mm.entry('B').or_insert(9);
+    // mm.entry('L').or_insert(0);
+    // if *m == mm {
+    //     println!("hello");
+    // }
+    if curr_col == -1 {
+        if *carry == 0 {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    if curr_row != max_rows - 1 {
+        let mut letter = data[curr_row]
+            .chars()
+            .skip(curr_col as usize)
+            .next()
+            .unwrap();
+
+        if m.contains_key(&letter) {
+            let mut v = 0;
+            {
+                v = m[&letter];
+            }
+            if find_solution(
+                data,
+                m,
+                carry,
+                sum + v,
+                curr_row + 1,
+                max_rows,
+                curr_col,
+                leading_zero_letters,
+            )
+            {
+                return true;
+            }
+        } else {
+            // letter is not already assigned, iterate over available digits
+            let mut avail_digits = (0..10u8)
+                .into_iter()
+                .collect::<HashSet<_>>()
+                .difference(&m.values().cloned().collect::<HashSet<_>>())
+                .cloned()
+                .collect::<Vec<_>>();
+            avail_digits.sort();
+
+            for d in avail_digits {
+                if d == 0 {
+                    if let Some(_) = leading_zero_letters.chars().find(|&c| c == letter) {
+                        continue;
+                    }
+                }
+                m.insert(letter, d);
+                if find_solution(
+                    data,
+                    m,
+                    carry,
+                    sum + d,
+                    curr_row + 1,
+                    max_rows,
+                    curr_col,
+                    leading_zero_letters,
+                )
+                {
+                    return true;
+                } else {
+                    m.remove(&letter);
+                }
+            }
+            return false;
+
+        }
+
+    } else if curr_row == max_rows - 1 {
+
+        // we are evaluating the SUM now
+        let mut letter = data[curr_row]
+            .chars()
+            .skip(curr_col as usize)
+            .next()
+            .unwrap();
+        if m.contains_key(&letter) {
+            let mut v = 0;
+            {
+                v = m[&letter];
+            }
+            // if char is assigned and matches the sum value
+            let mut calc_val = sum + *carry;
+            if calc_val >= 10 {
+                *carry = 1;
+                calc_val -= 10;
+            } else {
+                *carry = 0;
+            }
+
+            if v == calc_val {
+                if find_solution(
+                    data,
+                    m,
+                    carry,
+                    0,
+                    0,
+                    max_rows,
+                    curr_col - 1,
+                    leading_zero_letters,
+                )
+                {
+                    return true;
+                }
+            } else {
+                // char is assigned and doesn't match the sum value
+                return false;
+            }
+
+        } else {
+            // char is not assigned and correct digit is already in use
+            let mut calc_val = sum + *carry;
+            if calc_val >= 10 {
+                *carry = 1;
+                calc_val -= 10;
+            } else {
+                *carry = 0;
+            }
+            let letter = data[curr_row]
+                .chars()
+                .skip(curr_col as usize)
+                .next()
+                .unwrap();
+            if let Some(_) = m.iter().find(|&(&c, &d)| d == calc_val && c != '_') {
+                return false;
+            } else {
+                // if calc_val >= 10 {
+                //     println!("M: {:?}", m);
+                //     println!("CARRY: {:?}", *carry);
+                //     println!("SUM: {:?}", sum);
+                //     println!("CURR_ROW: {:?}", curr_row);
+                //     println!("CURR_COL: {:?}", curr_col);
+                //     panic!("boom");
+                // }
+                m.insert(letter, calc_val);
+
+                if find_solution(
+                    data,
+                    m,
+                    carry,
+                    0,
+                    0,
+                    max_rows,
+                    curr_col - 1,
+                    leading_zero_letters,
+                )
+                {
+                    return true;
+                } else {
+                    m.remove(&letter);
+                }
+            }
+        }
+    }
+    false
+}
+
+fn normalize_tokens(tkns: &mut [&str], max_len: usize) -> Vec<String> {
+    let mut output = Vec::new();
+
+    for tkn in tkns.iter_mut() {
+        if tkn.len() < max_len {
+            let mut padded_tkn = "_".repeat(max_len - tkn.len());
+            padded_tkn.extend(tkn.chars());
+            output.push(padded_tkn);
+        } else {
+            output.push(tkn.to_string());
+        }
     }
     output
 }
