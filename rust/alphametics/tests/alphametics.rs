@@ -13,14 +13,12 @@ fn test_with_three_letters() {
 }
 
 #[test]
-#[ignore]
 fn test_must_have_unique_value_for_each_letter() {
     let answer = alphametics::solve("A == B");
     assert_eq!(answer, None);
 }
 
 #[test]
-#[ignore]
 fn test_leading_zero_solution_is_invalid() {
     let answer = alphametics::solve("ACA + DD == BD");
     assert_eq!(answer, None);
@@ -32,7 +30,6 @@ fn test_puzzle_with_four_letters() {
 }
 
 #[test]
-#[ignore]
 fn test_puzzle_with_six_letters() {
     assert_alphametic_solution_eq(
         "NO + NO + TOO == LATE",
@@ -41,7 +38,6 @@ fn test_puzzle_with_six_letters() {
 }
 
 #[test]
-#[ignore]
 fn test_puzzle_with_seven_letters() {
     assert_alphametic_solution_eq(
         "HE + SEES + THE == LIGHT",
@@ -58,7 +54,6 @@ fn test_puzzle_with_seven_letters() {
 }
 
 #[test]
-#[ignore]
 fn test_puzzle_with_eight_letters() {
     assert_alphametic_solution_eq(
         "SEND + MORE == MONEY",
@@ -76,7 +71,6 @@ fn test_puzzle_with_eight_letters() {
 }
 
 #[test]
-#[ignore]
 fn test_puzzle_with_ten_letters() {
     assert_alphametic_solution_eq(
         "AND + A + STRONG + OFFENSE + AS + A + GOOD == DEFENSE",

@@ -18,7 +18,9 @@ pub fn solve(puzzle: &str) -> Option<HashMap<char, u8>> {
 
     data.push(result);
 
-    let data = normalize_tokens(data.as_mut_slice(), result.len());
+    let max_lgth = data.iter().map(|s| s.len()).max().unwrap();
+
+    let data = normalize_tokens(data.as_mut_slice(), max_lgth);
     let data = data.iter().map(|s| s.as_str()).collect::<Vec<_>>();
     println!("data: {:?}", data);
     let mut leading_zero_letters = data.iter()
@@ -40,7 +42,7 @@ pub fn solve(puzzle: &str) -> Option<HashMap<char, u8>> {
     if find_solution(
         data.as_slice(),
         &mut m,
-        &mut 0,
+        0,
         0,
         0,
         data.len(),
@@ -78,31 +80,26 @@ pub fn unassign_letter(m: &mut HashMap<char, u8>, letter: char, digit: u8) {
 fn find_solution(
     data: &[&str],
     m: &mut HashMap<char, u8>,
-    carry: &mut u8,
+    carry: u8,
     sum: u8,
     curr_row: usize,
     max_rows: usize,
     curr_col: i8,
     leading_zero_letters: &str,
 ) -> bool {
-    // println!("M: {:?}", m);
-    // println!("CARRY: {:?}", *carry);
-    // println!("SUM: {:?}", sum);
-    // println!("CURR_ROW: {:?}", curr_row);
-    // println!("CURR_COL: {:?}", curr_col);
-    // // If we are on the last iterm of data, we are in the SUM, this means that
     // // this has the leftmost digit of the terms
     // // If we try to assign a char in one of the addends
-    // let mut mm = HashMap::new();
-    // mm.entry('_').or_insert(0);
-    // mm.entry('I').or_insert(1);
-    // mm.entry('B').or_insert(9);
-    // mm.entry('L').or_insert(0);
-    // if *m == mm {
-    //     println!("hello");
-    // }
+    let mut mm = HashMap::new();
+    mm.entry('_').or_insert(0);
+    mm.entry('D').or_insert(7);
+    mm.entry('E').or_insert(5);
+    // mm.entry('N').or_insert(6);
+    // mm.entry('R').or_insert(8);
+    if *m == mm {
+        println!("hello");
+    }
     if curr_col == -1 {
-        if *carry == 0 {
+        if carry == 0 {
             return true;
         } else {
             return false;
@@ -110,6 +107,12 @@ fn find_solution(
     }
 
     if curr_row != max_rows - 1 {
+        // println!("M: {:?}", m);
+        // println!("CARRY: {:?}", carry);
+        // println!("SUM: {:?}", sum);
+        // println!("CURR_ROW: {:?}", curr_row);
+        // println!("CURR_COL: {:?}", curr_col);
+        // // If we are on the last iterm of data, we are in the SUM, this means that
         let mut letter = data[curr_row]
             .chars()
             .skip(curr_col as usize)
@@ -139,7 +142,10 @@ fn find_solution(
             let mut avail_digits = (0..10u8)
                 .into_iter()
                 .collect::<HashSet<_>>()
-                .difference(&m.values().cloned().collect::<HashSet<_>>())
+                .difference(&m.iter()
+                    .filter(|&(&x, &y)| x != '_')
+                    .map(|(&x, &y)| y)
+                    .collect::<HashSet<_>>())
                 .cloned()
                 .collect::<Vec<_>>();
             avail_digits.sort();
@@ -172,7 +178,7 @@ fn find_solution(
         }
 
     } else if curr_row == max_rows - 1 {
-
+        let mut local_carry = 0;
         // we are evaluating the SUM now
         let mut letter = data[curr_row]
             .chars()
@@ -185,19 +191,14 @@ fn find_solution(
                 v = m[&letter];
             }
             // if char is assigned and matches the sum value
-            let mut calc_val = sum + *carry;
-            if calc_val >= 10 {
-                *carry = 1;
-                calc_val -= 10;
-            } else {
-                *carry = 0;
-            }
-
+            let mut calc_val = sum + carry;
+            local_carry = calc_val / 10;
+            calc_val %= 10;
             if v == calc_val {
                 if find_solution(
                     data,
                     m,
-                    carry,
+                    local_carry,
                     0,
                     0,
                     max_rows,
@@ -214,18 +215,20 @@ fn find_solution(
 
         } else {
             // char is not assigned and correct digit is already in use
-            let mut calc_val = sum + *carry;
-            if calc_val >= 10 {
-                *carry = 1;
-                calc_val -= 10;
-            } else {
-                *carry = 0;
-            }
+            let mut calc_val = sum + carry;
+            local_carry = calc_val / 10;
+            calc_val %= 10;
             let letter = data[curr_row]
                 .chars()
                 .skip(curr_col as usize)
                 .next()
                 .unwrap();
+
+            if calc_val == 0 {
+                if let Some(_) = leading_zero_letters.chars().find(|&c| c == letter) {
+                    return false;
+                }
+            }
             if let Some(_) = m.iter().find(|&(&c, &d)| d == calc_val && c != '_') {
                 return false;
             } else {
@@ -242,7 +245,7 @@ fn find_solution(
                 if find_solution(
                     data,
                     m,
-                    carry,
+                    local_carry,
                     0,
                     0,
                     max_rows,
