@@ -1,34 +1,26 @@
-import java.util.stream.LongStream;
+import java.util.Arrays;
+import java.util.stream.*;
 
 class LargestSeriesProductCalculator {
-    private String input;
+    int[] numbers;
     LargestSeriesProductCalculator(String inputNumber) {
-        if (inputNumber.chars().filter(c -> !Character.isDigit(c)).count() != 0) {
+        numbers = inputNumber.chars().filter(c -> Character.isDigit(c)).map(c -> Character.getNumericValue(c)).toArray();
+        if (numbers.length != inputNumber.length()) {
             throw new IllegalArgumentException("String to search may only contain digits.");
         }
-        input = inputNumber;
     }
 
     long calculateLargestProductForSeriesLength(int numberOfDigits) {
-        long maxProduct = 0;
-        if (this.input.length() < numberOfDigits) {
+        if (numbers.length < numberOfDigits) {
             throw new IllegalArgumentException("Series length must be less than or equal to the length of the string to search.");
-        }
-        if (this.input.length() == 0) {
-            return 1;
         }
         if (numberOfDigits < 0) {
             throw new IllegalArgumentException("Series length must be non-negative.");
         }
-        long[] digits = this.input.chars().mapToLong(Character::getNumericValue).toArray();
-        for (int i = 0; i < digits.length; i++) {
-            if (i + numberOfDigits > digits.length) {
-                break;
-            }
-            long product = LongStream.range(i, i + numberOfDigits).reduce(1, (acc, e) -> acc *= digits[(int)e]);
-            if (product > maxProduct) {
-                maxProduct = product;
-            }
+        int maxProduct = 0;
+        for (int i = 0; i + numberOfDigits - 1 < numbers.length; i++) {
+           int currentProduct = IntStream.range(0 + i, numberOfDigits + i).map(idx -> numbers[idx]).reduce(1, (a, b) -> a * b);
+           maxProduct = Integer.max(currentProduct, maxProduct);
         }
 
         return maxProduct;
