@@ -11,3 +11,5 @@ Cargo.lock
 **/.gradle
 **/.idea
 **/out
+**/bin
+**/obj
